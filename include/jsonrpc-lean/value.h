@@ -20,7 +20,10 @@
 #ifndef JSONRPC_LEAN_VALUE_H
 #define JSONRPC_LEAN_VALUE_H
 
-#include <cstdint>
+#include "json.hpp"
+
+#include "fault.h"
+
 #include <iosfwd>
 #include <map>
 #include <string>
@@ -28,26 +31,17 @@
 #include <vector>
 #include <ostream>
 
-#include "util.h"
-#include "fault.h"
-#include "writer.h"
-
-struct tm;
-
 namespace jsonrpc {
 
     class Value {
     public:
         typedef std::vector<Value> Array;
-        typedef tm DateTime;
         typedef std::string String;
         typedef std::map<std::string, Value> Struct;
 
         enum class Type {
             ARRAY,
-            BINARY,
             BOOLEAN,
-            DATE_TIME,
             DOUBLE,
             INTEGER_32,
             INTEGER_64,
@@ -63,11 +57,6 @@ namespace jsonrpc {
         }
 
         Value(bool value) : myType(Type::BOOLEAN) { as.myBoolean = value; }
-
-        Value(const DateTime& value) : myType(Type::DATE_TIME) {
-            as.myDateTime = new DateTime(value);
-            as.myDateTime->tm_isdst = -1;
-        }
 
         Value(double value) : myType(Type::DOUBLE) { as.myDouble = value; }
 
@@ -85,7 +74,7 @@ namespace jsonrpc {
 
         Value(const char* value) : Value(String(value)) {}
 
-        Value(String value, bool binary = false) : myType(binary ? Type::BINARY : Type::STRING) {
+        Value(String value) : myType(Type::STRING) {
             as.myString = new String(std::move(value));
         }
 
@@ -131,10 +120,6 @@ namespace jsonrpc {
             case Type::ARRAY:
                 as.myArray = new Array(other.AsArray());
                 break;
-            case Type::DATE_TIME:
-                as.myDateTime = new DateTime(other.AsDateTime());
-                break;
-            case Type::BINARY:
             case Type::STRING:
                 as.myString = new String(other.AsString());
                 break;
@@ -163,9 +148,7 @@ namespace jsonrpc {
         }
 
         bool IsArray() const { return myType == Type::ARRAY; }
-        bool IsBinary() const { return myType == Type::BINARY; }
         bool IsBoolean() const { return myType == Type::BOOLEAN; }
-        bool IsDateTime() const { return myType == Type::DATE_TIME; }
         bool IsDouble() const { return myType == Type::DOUBLE; }
         bool IsInteger32() const { return myType == Type::INTEGER_32; }
         bool IsInteger64() const { return myType == Type::INTEGER_64; }
@@ -180,18 +163,9 @@ namespace jsonrpc {
             throw InvalidParametersFault();
         }
 
-        const String& AsBinary() const { return AsString(); }
-
         const bool& AsBoolean() const {
             if (IsBoolean()) {
                 return as.myBoolean;
-            }
-            throw InvalidParametersFault();
-        }
-
-        const DateTime& AsDateTime() const {
-            if (IsDateTime()) {
-                return *as.myDateTime;
             }
             throw InvalidParametersFault();
         }
@@ -221,7 +195,7 @@ namespace jsonrpc {
         }
 
         const String& AsString() const {
-            if (IsString() || IsBinary()) {
+            if (IsString()) {
                 return *as.myString;
             }
             throw InvalidParametersFault();
@@ -235,51 +209,46 @@ namespace jsonrpc {
         }
 
         template<typename T>
-        inline const T& AsType() const;
+        inline T AsType() const;
 
         Type GetType() const { return myType; }
 
-        void Write(Writer& writer) const {
+        void Write(nlohmann::json & writer) const {
             switch (myType) {
-            case Type::ARRAY:
-                writer.StartArray();
-                for (auto& element : *as.myArray) {
-                    element.Write(writer);
-                }
-                writer.EndArray();
-                break;
-            case Type::BINARY:
-                writer.WriteBinary(as.myString->data(), as.myString->size());
-                break;
+			case Type::ARRAY: 			
+				for (auto& element : *as.myArray) {
+					nlohmann::json j;
+					element.Write(j);
+					writer.push_back(j);
+				}
+				break;
             case Type::BOOLEAN:
-                writer.Write(as.myBoolean);
+                writer = as.myBoolean;
                 break;
+				/*
             case Type::DATE_TIME:
-                writer.Write(*as.myDateTime);
+                writer = *as.myDateTime;
                 break;
+				*/ //TODO: get rid of datetime?
             case Type::DOUBLE:
-                writer.Write(as.myDouble);
+                writer = as.myDouble;
                 break;
             case Type::INTEGER_32:
-                writer.Write(as.myInteger32);
+                writer = as.myInteger32;
                 break;
             case Type::INTEGER_64:
-                writer.Write(as.myInteger64);
+                writer = as.myInteger64;
                 break;
             case Type::NIL:
-                writer.WriteNull();
+                writer = nullptr;
                 break;
             case Type::STRING:
-                writer.Write(*as.myString);
+                writer = *as.myString;
                 break;
-            case Type::STRUCT:
-                writer.StartStruct();
+            case Type::STRUCT:                
                 for (auto& element : *as.myStruct) {
-                    writer.StartStructElement(element.first);
-                    element.second.Write(writer);
-                    writer.EndStructElement();
+                    element.second.Write(writer[element.first]);
                 }
-                writer.EndStruct();
                 break;
             }
         }
@@ -293,10 +262,6 @@ namespace jsonrpc {
             case Type::ARRAY:
                 delete as.myArray;
                 break;
-            case Type::DATE_TIME:
-                delete as.myDateTime;
-                break;
-            case Type::BINARY:
             case Type::STRING:
                 delete as.myString;
                 break;
@@ -319,7 +284,6 @@ namespace jsonrpc {
         union {
             Array* myArray;
             bool myBoolean;
-            DateTime* myDateTime;
             String* myString;
             Struct* myStruct;
             struct {
@@ -330,45 +294,52 @@ namespace jsonrpc {
         } as;
     };
 
-    template<> inline const Value::Array& Value::AsType<typename Value::Array>() const {
+	//TODO: experimantal --- XXX --- allows to extend Value freely by providing corresponding operator/constructor on any user defined type.
+	template <typename T>
+	T Value::AsType() const
+	{
+		T val(*this);		
+		return val;
+	}
+
+	template<> inline Value::Array Value::AsType<typename Value::Array>() const {
         return AsArray();
     }
 
-    template<> inline const bool& Value::AsType<bool>() const {
+    template<> inline bool Value::AsType<bool>() const {
         return AsBoolean();
     }
 
-    template<> inline const Value::DateTime& Value::AsType<typename Value::DateTime>() const {
-        return AsDateTime();
-    }
-
-    template<> inline const double& Value::AsType<double>() const {
+    template<> inline double Value::AsType<double>() const {
         return AsDouble();
     }
 
-    template<> inline const int32_t& Value::AsType<int32_t>() const {
+    template<> inline int32_t Value::AsType<int32_t>() const {
         return AsInteger32();
     }
 
-    template<> inline const int64_t& Value::AsType<int64_t>() const {
+    template<> inline int64_t Value::AsType<int64_t>() const {
         return AsInteger64();
     }
 
-    template<> inline const Value::String& Value::AsType<typename Value::String>() const {
+    template<> inline Value::String Value::AsType<typename Value::String>() const {
         return AsString();
     }
 
-    template<> inline const Value::Struct& Value::AsType<typename Value::Struct>() const {
+    template<> inline Value::Struct Value::AsType<typename Value::Struct>() const {
         return AsStruct();
     }
 
-    template<> inline const Value& Value::AsType<Value>() const {
+	//TODO: XXX commented out as the 'AsType' was modified to return a copy but Value has no copy constr. ...
+	/*
+    template<> inline Value Value::AsType<Value>() const {
         return *this;
     }
+	*/
 
     inline const Value& Value::operator[](Array::size_type i) const {
         return AsArray().at(i);
-    };
+    }
 
     inline const Value& Value::operator[](const Struct::key_type& key) const {
         return AsStruct().at(key);
@@ -388,14 +359,8 @@ namespace jsonrpc {
             os << ']';
             break;
         }
-        case Value::Type::BINARY:
-            os << util::Base64Encode(value.AsBinary());
-            break;
         case Value::Type::BOOLEAN:
             os << value.AsBoolean();
-            break;
-        case Value::Type::DATE_TIME:
-            os << util::FormatIso8601DateTime(value.AsDateTime());
             break;
         case Value::Type::DOUBLE:
             os << value.AsDouble();
