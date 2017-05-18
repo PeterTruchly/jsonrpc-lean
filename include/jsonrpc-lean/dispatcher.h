@@ -179,26 +179,26 @@ namespace jsonrpc {
             myMethods.erase(name);
         }
 
-        Response Invoke(const std::string& name, const Request::Parameters& parameters, const Value& id) const {
+        Response Invoke(const std::string& name, const Request::Parameters& parameters, int32_t id) const {
             try {
                 auto method = myMethods.find(name);
                 if (method == myMethods.end()) {
                     throw MethodNotFoundFault("Method not found: " + name);
                 }
-                return{ method->second(parameters), Value(id) };
+                return{ method->second(parameters), id };
             }
             catch (const Fault& fault) {
-                return Response(fault.GetCode(), fault.GetString(), Value(id));
+                return Response(fault.GetCode(), fault.GetString(), id);
             }
             catch (const std::out_of_range&) {
                 InvalidParametersFault fault;
-                return Response(fault.GetCode(), fault.GetString(), Value(id));
+                return Response(fault.GetCode(), fault.GetString(), id);
             }
             catch (const std::exception& ex) {
-                return Response(0, ex.what(), Value(id));
+                return Response(0, ex.what(), id);
             }
             catch (...) {
-                return Response(0, "unknown error", Value(id));
+                return Response(0, "unknown error", id);
             }
         }
 
