@@ -23,7 +23,8 @@
 #include "value.h"
 
 #include <deque>
-#include <string>
+
+#include "jsonwriter.h"
 
 namespace jsonrpc {
 
@@ -33,37 +34,35 @@ namespace jsonrpc {
     public:
         typedef std::deque<Value> Parameters;
 
-        Request(std::string methodName, Parameters parameters, Value id)
-            : myMethodName(std::move(methodName)),
+        Request(std::string methodName, Parameters parameters, int32_t id) :
+    		myMethodName(std::move(methodName)),
             myParameters(std::move(parameters)),
-            myId(std::move(id)) {
+			myId{ id } 
+    	{
             // Empty
         }
 
         const std::string& GetMethodName() const { return myMethodName; }
         const Parameters& GetParameters() const { return myParameters; }
-        const Value& GetId() const { return myId; }
+        int32_t GetId() const { return myId; }
 
-        void Write(Writer& writer) const {
+        void Write(JsonWriter& writer) const {
             Write(myMethodName, myParameters, myId, writer);
         }
 
-        static void Write(const std::string& methodName, const Parameters& params, const Value& id, Writer& writer) {
-            writer.StartDocument();
-            writer.StartRequest(methodName, id);
+        static void Write(const std::string& methodName, const Parameters& params, const int32_t id, JsonWriter& writer) {
+            auto & paramsJson = writer.StartRequest(methodName, id);
             for (auto& param : params) {
-                writer.StartParameter();
-                param.Write(writer);
-                writer.EndParameter();
+				nlohmann::json j;
+                param.Write(j);
+				paramsJson.push_back(j);
             }
-            writer.EndRequest();
-            writer.EndDocument();
         }
 
     private:
         std::string myMethodName;
         Parameters myParameters;
-        Value myId;
+		int32_t myId;
     };
 
 } // namespace jsonrpc
