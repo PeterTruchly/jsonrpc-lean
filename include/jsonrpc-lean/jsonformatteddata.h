@@ -19,36 +19,29 @@
 #ifndef JSONRPC_LEAN_JSONREQUESTDATA_H
 #define JSONRPC_LEAN_JSONREQUESTDATA_H
 
-#include "formatteddata.h"
-
-#define RAPIDJSON_NO_SIZETYPEDEFINE
-namespace rapidjson { typedef ::std::size_t SizeType; }
-
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
-
 namespace jsonrpc {
 
-    class JsonFormattedData final : public FormattedData {
+    class JsonFormattedData final {
     public:
-        JsonFormattedData() : Writer(myStringBuffer) {
-
+	    explicit JsonFormattedData(int32_t id) :
+			m_messageId(id)
+    	{
         }
 
-        const char* GetData() override {
-            return myStringBuffer.GetString();
+        std::string GetData() 
+    	{
+			return Writer.dump();
         }
 
-        size_t GetSize() override {
-            return myStringBuffer.GetSize();
-        }
+		int32_t getId() const
+		{
+			return m_messageId;
+	    }
 
-        rapidjson::Writer<rapidjson::StringBuffer> Writer;
+		nlohmann::json Writer; //TODO: this is breaking encapsulation
 
     private:
-
-        rapidjson::StringBuffer myStringBuffer;
-        
+		int32_t m_messageId;        
     };
 
 } // namespace jsonrpc
