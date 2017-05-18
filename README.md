@@ -1,3 +1,5 @@
+# FORK!
+___Note (Peter Truchly):___ Please use the original [jsonrpc-lean](https://github.com/uskr/jsonrpc-lean) library. Goal of this fork is to experimentally replace json parser by [nlohmann/json](https://github.com/nlohmann/json).
 
 # jsonrpc-lean
 
