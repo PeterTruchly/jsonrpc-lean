@@ -20,178 +20,59 @@
 #ifndef JSONRPC_LEAN_JSONWRITER_H
 #define JSONRPC_LEAN_JSONWRITER_H
 
-#include "writer.h"
 #include "json.h"
-#include "util.h"
 #include "value.h"
 #include "jsonformatteddata.h"
 
-#define RAPIDJSON_NO_SIZETYPEDEFINE
-namespace rapidjson { typedef ::std::size_t SizeType; }
-
-#include <rapidjson/writer.h>
-#include <rapidjson/stringbuffer.h>
+#include "json.hpp"
 
 namespace jsonrpc {
 
-    class JsonWriter final : public Writer {
+    class JsonWriter final {
     public:
-        JsonWriter() : myRequestData(new JsonFormattedData()) {
+        JsonWriter()
+    	{
         }
 
-        // Writer
-        std::shared_ptr<FormattedData> GetData() override {
-            return std::static_pointer_cast<FormattedData>(myRequestData);
+		//TODO: this is breaking encapuslation of the class
+        // Writer result - formatted json message
+        std::shared_ptr<JsonFormattedData> GetData() 
+    	{
+            return myRequestData;
         }
 
-        void StartDocument() override {
-            // Empty
+		// Request
+        nlohmann::json & StartRequest(const std::string& methodName, const int32_t id) 
+    	{
+			myRequestData = std::make_unique<JsonFormattedData>(id);
+			myRequestData->Writer[json::JSONRPC_NAME] = jsonrpc::json::JSONRPC_VERSION_2_0;
+            myRequestData->Writer[json::METHOD_NAME] = methodName;
+			myRequestData->Writer[json::ID_NAME] = id;
+
+			myRequestData->Writer[json::PARAMS_NAME] = nlohmann::json::array(); // param array started and returned here...
+			return myRequestData->Writer[json::PARAMS_NAME];
         }
 
-        void EndDocument() override {
-            // Empty
+		// Response when successful
+        void WriteResponse(const int32_t id, const jsonrpc::Value & value)
+    	{
+			myRequestData = std::make_unique<JsonFormattedData>(id);
+			myRequestData->Writer[json::JSONRPC_NAME] = json::JSONRPC_VERSION_2_0;
+			myRequestData->Writer[json::ID_NAME] = id;
+			value.Write(myRequestData->Writer[json::RESULT_NAME]);
         }
 
-        void StartRequest(const std::string& methodName, const Value& id) override {
-            myRequestData->Writer.StartObject();
-
-            myRequestData->Writer.Key(json::JSONRPC_NAME, sizeof(json::JSONRPC_NAME) - 1);
-            myRequestData->Writer.String(json::JSONRPC_VERSION_2_0, sizeof(json::JSONRPC_VERSION_2_0) - 1);
-
-            myRequestData->Writer.Key(json::METHOD_NAME, sizeof(json::METHOD_NAME) - 1);
-            myRequestData->Writer.String(methodName.data(), methodName.size(), true);
-
-            WriteId(id);
-
-            myRequestData->Writer.Key(json::PARAMS_NAME, sizeof(json::PARAMS_NAME) - 1);
-            myRequestData->Writer.StartArray();
+		// Response when failed
+		void WriteFault(int32_t code, const int32_t id, const std::string& string)
+    	{
+			myRequestData = std::make_unique<JsonFormattedData>(id);
+			myRequestData->Writer[json::JSONRPC_NAME] = json::JSONRPC_VERSION_2_0;
+			myRequestData->Writer[json::ID_NAME] = id;
+            myRequestData->Writer[json::ERROR_NAME][json::ERROR_CODE_NAME] = code;
+			myRequestData->Writer[json::ERROR_NAME][json::ERROR_MESSAGE_NAME] = string;
         }
 
-        void EndRequest() override {
-            myRequestData->Writer.EndArray();
-            myRequestData->Writer.EndObject();
-        }
-
-        void StartParameter() override {
-            // Empty
-        }
-
-        void EndParameter() override {
-            // Empty
-        }
-
-        void StartResponse(const Value& id) override {
-            myRequestData->Writer.StartObject();
-
-            myRequestData->Writer.Key(json::JSONRPC_NAME, sizeof(json::JSONRPC_NAME) - 1);
-            myRequestData->Writer.String(json::JSONRPC_VERSION_2_0, sizeof(json::JSONRPC_VERSION_2_0) - 1);
-
-            WriteId(id);
-
-            myRequestData->Writer.Key(json::RESULT_NAME, sizeof(json::RESULT_NAME) - 1);
-        }
-
-        void EndResponse() override {
-            myRequestData->Writer.EndObject();
-        }
-
-        void StartFaultResponse(const Value& id) override {
-            myRequestData->Writer.StartObject();
-
-            myRequestData->Writer.Key(json::JSONRPC_NAME, sizeof(json::JSONRPC_NAME) - 1);
-            myRequestData->Writer.String(json::JSONRPC_VERSION_2_0, sizeof(json::JSONRPC_VERSION_2_0) - 1);
-
-            WriteId(id);
-        }
-
-        void EndFaultResponse() override {
-            myRequestData->Writer.EndObject();
-        }
-
-        void WriteFault(int32_t code, const std::string& string) override {
-            myRequestData->Writer.Key(json::ERROR_NAME, sizeof(json::ERROR_NAME) - 1);
-            myRequestData->Writer.StartObject();
-
-            myRequestData->Writer.Key(json::ERROR_CODE_NAME, sizeof(json::ERROR_CODE_NAME) - 1);
-            myRequestData->Writer.Int(code);
-
-            myRequestData->Writer.Key(json::ERROR_MESSAGE_NAME, sizeof(json::ERROR_MESSAGE_NAME) - 1);
-            myRequestData->Writer.String(string.data(), string.size(), true);
-
-            myRequestData->Writer.EndObject();
-        }
-
-        void StartArray() override {
-            myRequestData->Writer.StartArray();
-        }
-
-        void EndArray() override {
-            myRequestData->Writer.EndArray();
-        }
-
-        void StartStruct() override {
-            myRequestData->Writer.StartObject();
-        }
-
-        void EndStruct() override {
-            myRequestData->Writer.EndObject();
-        }
-
-        void StartStructElement(const std::string& name) override {
-            myRequestData->Writer.Key(name.data(), name.size(), true);
-        }
-
-        void EndStructElement() override {
-            // Empty
-        }
-
-        void WriteBinary(const char* data, size_t size) override {
-            myRequestData->Writer.String(data, size, true);
-        }
-
-        void WriteNull() override {
-            myRequestData->Writer.Null();
-        }
-
-        void Write(bool value) override {
-            myRequestData->Writer.Bool(value);
-        }
-
-        void Write(double value) override {
-            myRequestData->Writer.Double(value);
-        }
-
-        void Write(int32_t value) override {
-            myRequestData->Writer.Int(value);
-        }
-
-        void Write(int64_t value) override {
-            myRequestData->Writer.Int64(value);
-        }
-
-        void Write(const std::string& value) override {
-            myRequestData->Writer.String(value.data(), value.size(), true);
-        }
-
-        void Write(const tm& value) override {
-            Write(util::FormatIso8601DateTime(value));
-        }
-
-    private:
-        void WriteId(const Value& id) {
-            if (id.IsString() || id.IsInteger32() || id.IsInteger64() || id.IsNil()) {
-                myRequestData->Writer.Key(json::ID_NAME, sizeof(json::ID_NAME) - 1);
-                if (id.IsString()) {
-                    myRequestData->Writer.String(id.AsString().data(), id.AsString().size(), true);
-                } else if (id.IsInteger32()) {
-                    myRequestData->Writer.Int(id.AsInteger32());
-                } else if (id.IsInteger64()) {
-                    myRequestData->Writer.Int64(id.AsInteger64());
-                } else {
-                    myRequestData->Writer.Null();
-                }
-            }
-        }
+    private:    
 
         std::shared_ptr<JsonFormattedData> myRequestData;
     };
