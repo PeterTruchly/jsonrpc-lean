@@ -44,7 +44,10 @@ namespace jsonrpc {
 			transmitter.registerService(*this);
         }
 
-        ~Server() {}
+        ~Server()
+        {
+          disableService();
+        }
 
         Server(const Server&) = delete;
         Server& operator=(const Server&) = delete;
@@ -60,6 +63,12 @@ namespace jsonrpc {
 			m_backlog.emplace_back(message);
 			processBacklog();
 		}
+    
+		void disableService()
+    {
+			std::lock_guard<std::mutex> backlogLock(m_backlogMutex);
+			m_enabled = false;
+    }
 
 		void enableService()
         {
