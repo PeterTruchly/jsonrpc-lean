@@ -20,6 +20,8 @@ namespace jsonrpc
 		virtual ~IDatagramConsumer() = default;
 
 		virtual void datagramConsume(const std::string & response) = 0;
+
+		virtual void transportDisconnect(const std::string & error) = 0;
 	};
 
 	// This is an adaptation component. Capable of connecting client and/or service (or both at once) to the single communication channel.
