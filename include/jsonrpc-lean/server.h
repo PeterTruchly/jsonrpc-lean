@@ -64,12 +64,6 @@ namespace jsonrpc {
 			processBacklog();
 		}
     
-		void disableService()
-    {
-			std::lock_guard<std::mutex> backlogLock(m_backlogMutex);
-			m_enabled = false;
-    }
-
 		void transportDisconnect(const std::string & error) override
         {
 	        //no action
@@ -77,8 +71,8 @@ namespace jsonrpc {
     
 		void disableService()
 		{
-				std::lock_guard<std::mutex> backlogLock(m_backlogMutex);
-				m_enabled = false;
+			std::lock_guard<std::mutex> backlogLock(m_backlogMutex);
+			m_enabled = false;
 		}
 
 		void enableService()
