@@ -26,7 +26,7 @@
 #include "response.h"
 #include "value.h"
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 
 namespace jsonrpc {
 

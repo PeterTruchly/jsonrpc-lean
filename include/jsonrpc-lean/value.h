@@ -20,7 +20,7 @@
 #ifndef JSONRPC_LEAN_VALUE_H
 #define JSONRPC_LEAN_VALUE_H
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 
 #include "fault.h"
 

@@ -24,7 +24,7 @@
 #include "value.h"
 #include "jsonformatteddata.h"
 
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 
 namespace jsonrpc {
 
